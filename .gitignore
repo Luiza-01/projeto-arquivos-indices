@@ -1,0 +1,12 @@
+# Ignorar arquivos binários e executáveis
+*.bin
+*.exe
+*.dll
+*.o
+*.obj
+
+# Ignorar pastas de dados inteiras
+dados/
+data/
+dataset/
+database/
