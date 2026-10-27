@@ -4,7 +4,7 @@
 
 ////************PESQUISA BINARIA************
 
-void pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
+long long pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
     long long inicio = 0, meio, deslocamento_meio;
     fim --;
     while(inicio <= fim){
@@ -29,10 +29,10 @@ void pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo
                 fread(&ind_evento, sizeof(INDICE_EVENTO), 1, f);
                 chave = ind_evento.chave;
         }else
-            return;
+            return -1;
         if(chave == procurado){
             printf("Valor encontrado");
-            return;
+            return meio;
         }
         else if(chave < procurado)
             inicio = meio + 1;
@@ -40,4 +40,24 @@ void pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo
             fim = meio - 1;
     }
     printf("Valor nao encontrado!\n");
+    return -1;
+}
+
+//por enquanto fica aqui
+void escreve_produto(PRODUTO prod){
+    printf("\n");
+    printf("ID: %ld", prod.id_produto);
+    printf("PRECO: %f", prod.preco);
+    printf("MARCA: %s", prod.marca);
+    printf("CATEGORIA: %s", prod.categoria);
+    printf("\n");
+}
+void escreve_evento(EVENTO evento){
+    printf("\n");
+    printf("%ld", evento.id_evento);
+    printf("%s", evento.horario);
+    printf("%ld", evento.id_user);
+    printf("%s", evento.id_sessao);
+    printf("%s", evento.tipo_sessao);
+    printf("\n");
 }

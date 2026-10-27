@@ -57,13 +57,33 @@ void cria_indice_evento(FILE *f){
 }
 
 //************BUSCA INDICES************
-void busca_produto(){
-    
-    busca_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado);
+void busca_produto(FILE *f, long long procurado){
+    _fseeki64(f, 0, SEEK_END);
+    long long fim = ftell(f) / TAM_REG_PROD;    //ftell(f) - tamanho em bytes, tamanho de um registro de produto
+    fim --;                                     //qtd de produtos - 1 = ultima posicao
+    long long posicao = busca_binaria(fim, sizeof(PRODUTO), f, 0, procurado);
+    if(posicao == -1){
+            printf("Entrada nao esta no arquivo ou e invalida");
+            return;
+    }
+    _fseeki64(f, posicao * TAM_REG_PROD, SEEK_SET);
+    PRODUTO produto;
+    fread(&produto, sizeof(PRODUTO), 1, f);
+    escreve_produto(produto);
 }
 
-void busca_evento(){
-
-    busca_binaria();
+void busca_evento(FILE *f, long long procurado){
+    _fseeki64(f, 0, SEEK_END);
+    long long fim = ftell(f) / TAM_REG_EVENTO;  //ftell(f) - tamanho em bytes, tamanho de um registro de evento
+    fim --;                                     //qtd de eventos - 1 = ultima posicao
+    long long posicao = busca_binaria(fim, sizeof(EVENTO), f, 0, procurado);
+     if(posicao == -1){
+            printf("Entrada nao esta no arquivo ou e invalida");
+            return;
+    }
+    _fseeki64(f, posicao * TAM_REG_EVENTO, SEEK_SET);
+    EVENTO evento;
+    fread(&evento, sizeof(EVENTO), 1, f);
+    escreve_produto(evento);
 }
 
