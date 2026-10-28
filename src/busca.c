@@ -4,29 +4,21 @@
 
 ////************PESQUISA BINARIA************
 
-long long pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
+long long pesquisa_binaria_arquivo(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
     long long inicio = 0, meio, deslocamento_meio;
     while(inicio <= fim){
         meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
-        deslocamento_meio = meio * tam_registro;
-        _fseeki64(f, deslocamento_meio, SEEK_SET); //fseek que aceita 64 bits (devido ao long long)
+		deslocamento_meio = meio * tam_registro;
+		_fseeki64(f, deslocamento_meio, SEEK_SET); //fseek que aceita 64 bits (devido ao long long)
         long long chave;
         if(tipo_arquivo == 0){       //produto
             PRODUTO prod;
             fread(&prod, sizeof(PRODUTO), 1, f);
             chave = prod.id_produto;
-        }else if(tipo_arquivo == 1){ //indice produto
-                INDICE_PROD ind_prod;
-                fread(&ind_prod, sizeof(INDICE_PROD), 1, f);
-                chave = ind_prod.chave;
-        }else if(tipo_arquivo == 2){ //evento
+        }else if(tipo_arquivo == 1){ //evento
                 EVENTO evento;
                 fread(&evento, sizeof(EVENTO), 1, f);
                 chave = evento.id_evento;
-        }else if(tipo_arquivo == 3){ //indice evento
-                INDICE_EVENTO ind_evento;
-                fread(&ind_evento, sizeof(INDICE_EVENTO), 1, f);
-                chave = ind_evento.chave;
         }else
             return -1;
         if(chave == procurado){
@@ -40,6 +32,38 @@ long long pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_ar
     }
     printf("Valor nao encontrado!\n");
     return -1;
+}
+long long pesquisa_binaria_indice(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
+    long long inicio = 0, meio, deslocamento_meio;
+    long long endereco_bloco = -1;
+    
+    while(inicio <= fim){
+        meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
+		deslocamento_meio = meio * tam_registro;
+		_fseeki64(f, deslocamento_meio, SEEK_SET); //fseek que aceita 64 bits (devido ao long long)
+        long long chave, endereco;
+        
+        if(tipo_arquivo == 0){ //indice produto
+            INDICE_PROD ind_prod;
+            fread(&ind_prod, sizeof(INDICE_PROD), 1, f);
+            chave = ind_prod.chave;
+            endereco = ind_prod.endereco;
+        }else if(tipo_arquivo == 1){ //indice evento
+                INDICE_EVENTO ind_evento;
+                fread(&ind_evento, sizeof(INDICE_EVENTO), 1, f);
+                chave = ind_evento.chave;
+                endereco = ind_evento.endereco;
+        }else
+            return -1;
+            
+        if(chave <= procurado){
+            endereco_bloco = endereco;
+            inicio = meio + 1;
+        }
+        else 
+            fim = meio - 1;
+    }
+    return endereco_bloco;
 }
 
 //por enquanto fica aqui

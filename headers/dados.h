@@ -6,6 +6,8 @@
 #define TAM_BLOCO 4096 //tamanho do bloco do índice
 #define TAM_REG_PROD 105
 #define TAM_REG_EVENTO 113
+#define TAM_REG_IND_PROD 8
+#define TAM_REG_IND_EVENTO 16
 
 // ************STRUCTS************
 
