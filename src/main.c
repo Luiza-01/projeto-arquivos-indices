@@ -7,6 +7,8 @@
 // ************MAIN************
 
 int main(){
+    printf("%d", sizeof(INDICE_EVENTO));
+    printf("%d", sizeof(INDICE_PROD));
     FILE *f_prod = fopen("produtos.bin", "rb");
     if(f_prod == NULL){
         printf("Nao foi possivel abrir o arquivo!\n");

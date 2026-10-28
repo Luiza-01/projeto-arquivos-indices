@@ -6,7 +6,6 @@
 
 long long pesquisa_binaria(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
     long long inicio = 0, meio, deslocamento_meio;
-    fim --;
     while(inicio <= fim){
         meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
         deslocamento_meio = meio * tam_registro;
