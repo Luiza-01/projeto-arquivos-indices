@@ -84,6 +84,6 @@ void busca_evento(FILE *f, long long procurado){
     _fseeki64(f, posicao * TAM_REG_EVENTO, SEEK_SET);
     EVENTO evento;
     fread(&evento, sizeof(EVENTO), 1, f);
-    escreve_produto(evento);
+    escreve_evento(evento);
 }
 
