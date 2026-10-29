@@ -338,9 +338,11 @@ void busca_evento(FILE *f, FILE *f_ind, long long procurado){
 //************INSERCAO************
 
 void completa_com_espacos(char *dest, const char *src, int tamanho) {
-    int n = strlen(src);
+    int n = strcspn(src, "\r\n");
+
     if (n > tamanho - 1)
         n = tamanho - 1;
+
     memcpy(dest, src, n);
     memset(dest + n, ' ', tamanho - 1 - n);
     dest[tamanho - 1] = '\0';
@@ -730,31 +732,34 @@ int remocao_arquivo_eventos(FILE *f, FILE *f_ind, long long procurado){
 }
 
 
-void pesquisa_sequencial_arquivo_produtos(FILE *f){
-	if(f == NULL){
+void pesquisa_sequencial_arquivo_produtos(FILE *f, long long qtd_desejada){
+	if(f == NULL || qtd_desejada <= 0){
 		printf("Busca inválida!\n");
 		return;	
 	}
 	
 	PRODUTO produto;
-	long long posicao_arq, posicao_prox;
+	long long posicao_arq, posicao_prox, cont = 0;
 	long long i;
 	_fseeki64(f, 0, SEEK_SET);
-	for(i=0; i<QTD_PROD_ARQ; i++){
+	for(i=0; i<QTD_PROD_ARQ && cont < qtd_desejada; i++){
 		if(fread(&produto, sizeof(PRODUTO), 1, f) == 1){
 			fgetc(f);
 			if(!produto.excluido){
-				escreve_produto(produto);	
+				escreve_produto(produto);
+				cont++;	
 			}
 			if(produto.prox != 0){
 				posicao_arq = _ftelli64(f); // posicao atual do arquivo
 				posicao_prox = produto.prox;
-				while(posicao_prox != 0){
+				while(posicao_prox != 0 && cont < qtd_desejada){
 					_fseeki64(f, posicao_prox, SEEK_SET);
 					if (fread(&produto, sizeof(PRODUTO), 1, f) != 1)
            		 		 break;
-           		 	if(!produto.excluido)
+           		 	if(!produto.excluido){
             			escreve_produto(produto);
+            			cont++;	
+            		}
 					posicao_prox = produto.prox;
 				}	
 				_fseeki64(f, posicao_arq, SEEK_SET);
@@ -763,7 +768,7 @@ void pesquisa_sequencial_arquivo_produtos(FILE *f){
 	}
 }
 void pesquisa_sequencial_arquivo_eventos(FILE *f){
-		if(f == NULL){
+	if(f == NULL){
 		printf("Busca inválida!\n");
 		return;	
 	}
@@ -916,8 +921,11 @@ void menu_produtos(FILE *f, FILE *f_ind){
                 break;
             }
             case 3: {
+            	long qtd;
                 printf("\nMostrar produtos\n");
-                pesquisa_sequencial_arquivo_produtos(f);
+                printf("Mostrar quantos?");
+                scanf("%ld", &qtd);
+                pesquisa_sequencial_arquivo_produtos(f, qtd);
                 break;
             }
             case 4: {
@@ -939,8 +947,10 @@ void menu_produtos(FILE *f, FILE *f_ind){
                 while (getchar() != '\n'); //limpa buffer
                 printf("Categoria: ");
                 fgets(categoria, sizeof(categoria), stdin);
+                categoria[strcspn(categoria, "\r\n")] = '\0';
                 printf("Marca: ");
                 fgets(marca, sizeof(marca), stdin);
+                marca[strcspn(marca, "\r\n")] = '\0';
                 printf("Preco: ");
                 scanf("%lf", &preco);
             	
@@ -951,6 +961,7 @@ void menu_produtos(FILE *f, FILE *f_ind){
             case 6: {
             	printf("\nMostrar mais caro:\n");	
             	produto_mais_caro(f);
+            	break;
             }
             case 0:     
                 printf("\nVoltando ao menu principal...\n");
@@ -977,22 +988,22 @@ void menu_eventos(FILE *f, FILE *f_ind){
         switch(escolha){
             case 1: {
             	long long procurado;
-                printf("\nPesquisa por Índice\n");
-                printf("ID procurado: \n");
+                printf("\nPesquisa por Indice\n");
+                printf("ID procurado:");
                 scanf("%lld", &procurado);
                 busca_evento(f, f_ind, procurado);
                 break;
             }
             case 2: {
             	long long procurado;
-                printf("\nPesquisa Binária direto no arquivo\n");
-                printf("ID procurado: \n");
+                printf("\nPesquisa Binaria direto no arquivo\n");
+                printf("ID procurado:");
                 scanf("%lld", &procurado);
                 pesquisa_binaria_arquivo_eventos(f, procurado);    
                 break;
             }
             case 3: {
-                printf("\nMostrar produtos\n");
+                printf("\nMostrar eventos\n");
                 pesquisa_sequencial_arquivo_eventos(f);
                 break;
             }
@@ -1017,11 +1028,13 @@ void menu_eventos(FILE *f, FILE *f_ind){
                 while (getchar() != '\n'); //limpa buffer
                 printf("ID sessao: ");
                 fgets(id_sessao, sizeof(id_sessao), stdin);
+                id_sessao[strcspn(id_sessao, "\r\n")] = '\0';
                 printf("Tipo sessao: ");
                 fgets(tipo_sessao, sizeof(tipo_sessao), stdin);
+                tipo_sessao[strcspn(tipo_sessao, "\r\n")] = '\0';
                 printf("Horario: ");
                 fgets(horario, sizeof(horario), stdin);
-    
+    			horario[strcspn(horario, "\r\n")] = '\0';
             	
 				EVENTO novo = cria_evento(id_evento, id_sessao, id_user, tipo_sessao, horario);
                 insercao_arquivo_eventos(f, f_ind, novo);
