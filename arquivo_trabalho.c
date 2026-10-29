@@ -1166,7 +1166,7 @@ int main(){
                 printf("\nencerrando programa...\n");
                 break;     
             default:
-                printf("\n! Entrada Inválida ! \n");
+                printf("\n! Entrada Invalida ! \n");
                 break;
         }
     }while (escolha !=0);
