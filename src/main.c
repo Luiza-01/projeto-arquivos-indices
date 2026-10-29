@@ -22,6 +22,43 @@ int main(){
     }
     cria_indice_prod(f_prod);
 
+    //  MENUS
+    
+    int escolha;
+    
+    do {
+        printf("E-commerce \n");
+        printf("1) Arquivo de Produtos \n"); //Mexer Arquivo de Produtos
+        printf("2) Arquivo de Eventos \n"); //Mexer Arquivo de Eventos
+        printf("0) Encerrar programa \n");
+        scanf("%d", &escolha);
+        
+        switch (escolha){
+            
+            case 1:
+            
+                printf("\n++ Arquivo de Produtos\n");
+                menu_produtos();
+                break;
+                
+            case 2:
+            
+                printf("\n++ Arquivo de Eventos\n");
+                menu_eventos();
+                break;
+                
+            case 0:
+            
+                printf("\n encerrando programa...\n");
+                break;
+                
+            default:
+            
+                printf("\n! Entrada Inválida ! \n");
+                break;
+        }
+    } while (escolha !=0);
+    
     fclose(f_prod);
     fclose(f_evento);
 
