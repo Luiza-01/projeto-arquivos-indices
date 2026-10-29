@@ -213,7 +213,7 @@ void cria_indice_evento(FILE *f){
     _fseeki64(f, 0, SEEK_SET);
     EVENTO evento;
     long long posicao_atual = 0;
-    while(posicao_atual < QTD_EVEN_ARQ &&fread(&evento, sizeof(evento), 1, f) == 1){
+    while(posicao_atual < QTD_EVEN_ARQ && fread(&evento, sizeof(evento), 1, f) == 1){
         fgetc(f);   //consome com o \n, que está no arquivo, mas não na estrutura PRODUTO
         if(posicao_atual % TAM_BLOCO == 0){
             INDICE_EVENTO ind;
@@ -303,6 +303,7 @@ void busca_evento(FILE *f, FILE *f_ind, long long procurado){
     int i;
 
     _fseeki64(f, endereco, SEEK_SET);
+    
     for(i=0;i<restantes;i++){
         if(fread(&evento, sizeof(EVENTO), 1, f) != 1)
             break;
@@ -731,6 +732,7 @@ int remocao_arquivo_eventos(FILE *f, FILE *f_ind, long long procurado){
     return 1;
 }
 
+//************ PESQUISAS ************
 
 void pesquisa_sequencial_arquivo_produtos(FILE *f, long long qtd_desejada){
 	if(f == NULL || qtd_desejada <= 0){
@@ -767,32 +769,34 @@ void pesquisa_sequencial_arquivo_produtos(FILE *f, long long qtd_desejada){
 		}
 	}
 }
-void pesquisa_sequencial_arquivo_eventos(FILE *f){
-	if(f == NULL){
+void pesquisa_sequencial_arquivo_eventos(FILE *f, long long qtd_desejada){
+	if(f == NULL || qtd_desejada <= 0){
 		printf("Busca inválida!\n");
 		return;	
 	}
 	
 	EVENTO evento;
-	long long exibidos = 0;
-	long long posicao_arq, posicao_prox;
+	long long posicao_arq, posicao_prox, cont = 0;
 	long long i;
 	_fseeki64(f, 0, SEEK_SET);
-	for(i=0; i<QTD_EVEN_ARQ; i++){
+	for(i=0; i < QTD_EVEN_ARQ && cont < qtd_desejada; i++){
 		if(fread(&evento, sizeof(EVENTO), 1, f) == 1){
 			fgetc(f);
 			if(!evento.excluido){
 				escreve_evento(evento);	
+				cont++;
 			}
 			if(evento.prox != 0){
 				posicao_arq = _ftelli64(f); // posicao atual do arquivo
 				posicao_prox = evento.prox;
-				while(posicao_prox != 0){
+				while(posicao_prox != 0 && cont < qtd_desejada){
 					_fseeki64(f, posicao_prox, SEEK_SET);
 					if (fread(&evento, sizeof(EVENTO), 1, f) != 1)
            		 		 break;
-           		 	if(!evento.excluido)
+           		 	if(!evento.excluido){
             			escreve_evento(evento);
+            			cont++;	
+            		}
 					posicao_prox = evento.prox;
 				}	
 				_fseeki64(f, posicao_arq, SEEK_SET);
@@ -887,6 +891,24 @@ void produto_mais_caro(FILE *f){
     printf("\nProduto com maior preco:\n");
     escreve_produto(mais_caro);
 }
+
+//************ RECONSTRUCAO DE INDICE ************
+
+//nao usada pq o indice nao muda! (Somente sobre parte fixa)
+void reconstruir_indice(FILE *f, FILE **f_ind, char *f_nome, int tipo){
+    fflush(f);
+    fclose(*f_ind);
+    if(tipo == 0)
+    	cria_indice_prod(f);
+    else if(tipo == 1)
+    	cria_indice_evento(f);
+    *f_ind = fopen(f_nome, "r+b");
+    if(*f_ind == NULL)
+        printf("Nao foi possivel reabrir o arquivo de indice!\n");
+    else
+        printf("Indice reconstruido (somente parte ordenada).\n");
+}
+
 
 //************ MENUS ************
 
