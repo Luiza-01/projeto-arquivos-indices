@@ -1,4 +1,5 @@
 #include<stdio.h>
+#include<stdlib.h>
 #include<stdbool.h>
 #include<string.h>
 
@@ -46,22 +47,31 @@ typedef struct indice_evento{
 //retorna numero do registro
 long long pesquisa_binaria_arquivo(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
     long long inicio = 0, meio, chave, prox, posicao;
+    bool excluido;
     while(inicio <= fim){
-        meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
+        
+		meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
 		_fseeki64(f, meio * tam_registro, SEEK_SET); //fseek que aceita 64 bits (devido ao long long)
-        if(tipo_arquivo == 0){       //produto
+        
+		if(tipo_arquivo == 0){       //produto
             PRODUTO prod;
             if(fread(&prod, sizeof(PRODUTO), 1, f) != 1) 
 				return -1;
             chave = prod.id_produto;
+            excluido = prod.excluido;
         }else if(tipo_arquivo == 1){ //evento
                 EVENTO evento;
                 if(fread(&evento, sizeof(EVENTO), 1, f) != 1) 
 					return -1;
                 chave = evento.id_evento;
+                excluido = evento.excluido;
         }else
             return -1;
         if(chave == procurado){
+        	if(excluido){                         
+                printf("Valor nao encontrado!\n");
+                return -1;
+            }
             printf("Valor encontrado");
             return meio;
         }
@@ -77,16 +87,22 @@ long long pesquisa_binaria_arquivo(long long fim, int tam_registro, FILE *f, int
     	_fseeki64(f, posicao * tam_registro, SEEK_SET);
     	if(tipo_arquivo == 0){
             PRODUTO produto;
-            if(fread(&produto, sizeof(PRODUTO), 1, f) != 1) break;
+            if(fread(&produto, sizeof(PRODUTO), 1, f) != 1)
+				break;
             chave = produto.id_produto;
             prox = produto.prox;
+            excluido = produto.excluido;
         }else{
             EVENTO evento;
-            if(fread(&evento, sizeof(EVENTO), 1, f) != 1) break;
+            if(fread(&evento, sizeof(EVENTO), 1, f) != 1)
+				break;
             chave = evento.id_evento;
             prox = evento.prox;
+            excluido = evento.excluido;
         }
         if(chave == procurado){
+        	if(excluido)
+        		break;
             printf("Valor encontrado");
             return posicao;
         }
@@ -96,7 +112,6 @@ long long pesquisa_binaria_arquivo(long long fim, int tam_registro, FILE *f, int
     }
     printf("Valor nao encontrado!\n");
     return -1;
-    
 }
 
 long long pesquisa_binaria_indice(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
@@ -332,7 +347,6 @@ PRODUTO cria_produto(long id_produto, char categoria[50], char marca[21], double
 }
 
 int insercao_arquivo_produtos(FILE *f, FILE *f_ind, PRODUTO novo){
-
     _fseeki64(f, 0, SEEK_SET);
     PRODUTO primeiro;
     if(fread(&primeiro, sizeof(PRODUTO), 1, f) != 1)
@@ -416,7 +430,7 @@ int insercao_arquivo_produtos(FILE *f, FILE *f_ind, PRODUTO novo){
             _fseeki64(f, anterior.prox, SEEK_SET);
             if(fread(&lido, sizeof(PRODUTO), 1, f) != 1)
                 return 0;
-            if(lido.id_produto == novo.id_produto)
+            if(lido.id_produto == novo.id_produto){
                 if(!lido.excluido)
                     return 0;   //ja existe
                 novo.prox = lido.prox;                  //reativa no mesmo lugar
@@ -444,6 +458,72 @@ int insercao_arquivo_produtos(FILE *f, FILE *f_ind, PRODUTO novo){
         return 1;
     }
 }
+
+int remocao_arquivo_produtos(FILE *f, FILE *f_ind, long long procurado){
+	//achar bloco com pesquisa binaria no indice
+	_fseeki64(f_ind, 0, SEEK_END);
+    long long fim = _ftelli64(f_ind) / TAM_REG_IND_PROD;
+    fim--;
+    long long endereco = pesquisa_binaria_indice(fim, TAM_REG_IND_PROD, f_ind, 0, procurado);
+    //'endereco' tem o endereco inicial do bloco
+	
+	if(endereco == -1)
+        return 0;       //menor que a primeira chave: nao existe
+   
+    //limita quantidade de registros lidos (o ultimo bloco pode ser menor que TAM_BLOCO)
+    long long restantes = TAM_BLOCO;
+    long long ate_fim = QTD_PROD_ARQ - (endereco / TAM_REG_PROD); // qtd de produtos do arquivo - posicao do primeiro registro do bloco = qtd de registros na parte ordenada do bloco
+    if(restantes > ate_fim)
+        restantes = ate_fim;
+
+    PRODUTO produto, anterior;
+    memset(&anterior, 0, sizeof(PRODUTO));
+    long long posicao = endereco, pos_achou = -1;
+    int i;
+
+    //ler parte ordenada
+    _fseeki64(f, endereco, SEEK_SET);
+    for(i=0;i<restantes;i++){
+        if(fread(&produto, sizeof(PRODUTO), 1, f) != 1)
+            break;		//nao conseguiu ler
+        fgetc(f);       //consome \n
+        if(produto.id_produto == procurado){ //achou
+            pos_achou = posicao; 
+            break;
+        }
+        if(produto.id_produto > procurado) //chave não encontrada
+            break;
+        //menor - avanca
+        anterior = produto;
+        posicao += TAM_REG_PROD;
+    }
+
+    //parte fora da ordenacao (prox)
+    while(pos_achou == -1 && anterior.prox != 0){
+        posicao = anterior.prox;
+        _fseeki64(f, posicao, SEEK_SET);
+        if(fread(&produto, sizeof(PRODUTO), 1, f) != 1)
+            break;
+        if(produto.id_produto == procurado){
+            pos_achou = posicao;
+            break;
+        }
+        if(produto.id_produto > procurado)
+            break;
+        anterior = produto;
+    }
+
+    if(pos_achou == -1 || produto.excluido)
+        return 0;
+
+    //regrava o registro com excluido = true 
+    produto.excluido = true;
+    _fseeki64(f, pos_achou, SEEK_SET);
+    fwrite(&produto, sizeof(PRODUTO), 1, f);
+    fflush(f);
+    return 1;
+}
+
 int main(){
     FILE *f_prod = fopen("produtos.bin", "r+b");
     if(f_prod == NULL){
