@@ -163,18 +163,18 @@ long long pesquisa_binaria_indice(long long fim, int tam_registro, FILE *f, int 
 
 void escreve_produto(PRODUTO prod){
     printf("\n");
-    printf("ID: %ld", prod.id_produto);
-    printf("PRECO: %f", prod.preco);
-    printf("MARCA: %s", prod.marca);
+    printf("ID: %ld ", prod.id_produto);
+    printf("PRECO: %f ", prod.preco);
+    printf("MARCA: %s ", prod.marca);
     printf("CATEGORIA: %s", prod.categoria);
     printf("\n");
 }
 void escreve_evento(EVENTO evento){
     printf("\n");
-    printf("%lld", evento.id_evento);
-    printf("%s", evento.horario);
-    printf("%ld", evento.id_user);
-    printf("%s", evento.id_sessao);
+    printf("%lld ", evento.id_evento);
+    printf("%s ", evento.horario);
+    printf("%ld ", evento.id_user);
+    printf("%s ", evento.id_sessao);
     printf("%s", evento.tipo_sessao);
     printf("\n");
 }
@@ -900,7 +900,7 @@ void consulta_produtos_categoria(FILE *f){
 
     char categoria[50];
     char categoria_busca[50];
-	fflush(stdin);
+	while (getchar() != '\n'); //limpa buffer
     printf("Digite a categoria: ");
     fgets(categoria, sizeof(categoria), stdin);
     categoria[strcspn(categoria, "\r\n")] = '\0';
@@ -945,15 +945,14 @@ void reconstruir_indice(FILE *f, FILE **f_ind, char *f_nome, int tipo){
         printf("Indice reconstruido (somente parte ordenada).\n");
 }
 
-
 //************ MENUS ************
 
 void menu_produtos(FILE *f, FILE *f_ind){
     int escolha;
     do {
         printf("\nArquivo de Produtos\n");
-        printf("1) Pesquisa por índice\n");
-        printf("2) Pesquisa binária direto no arquivo\n");
+        printf("1) Pesquisa por indice\n");
+        printf("2) Pesquisa binaria direto no arquivo\n");
         printf("3) Mostrar produtos\n");
         printf("4) Excluir produto\n");
         printf("5) Adicionar Produto\n");
@@ -965,7 +964,7 @@ void menu_produtos(FILE *f, FILE *f_ind){
         switch(escolha){
             case 1: {
             	long procurado;
-                printf("\nPesquisa por Índice\n");
+                printf("\nPesquisa por Indice\n");
                 printf("ID procurado: \n");
                 scanf("%ld", &procurado);
                 busca_produto(f, f_ind, procurado);
@@ -973,7 +972,7 @@ void menu_produtos(FILE *f, FILE *f_ind){
             }
             case 2: {
             	long procurado;
-                printf("\nPesquisa Binária direto no arquivo\n");
+                printf("\nPesquisa Binaria direto no arquivo\n");
                 printf("ID procurado: \n");
                 scanf("%ld", &procurado);
                 pesquisa_binaria_arquivo_produtos(f, procurado);    
@@ -1031,7 +1030,7 @@ void menu_produtos(FILE *f, FILE *f_ind){
                 printf("\nVoltando ao menu principal...\n");
                 break; 
             default:
-                printf("\n! Entrada Inválida !\n");
+                printf("\n! Entrada Invalida !\n");
                 break;
         }
     }while(escolha !=0); 
@@ -1041,8 +1040,8 @@ void menu_eventos(FILE *f, FILE *f_ind){
     int escolha;
     do {
         printf("\nArquivo de Eventos\n");
-        printf("1) Pesquisa por índice\n");
-        printf("2) Pesquisa binária direto no arquivo\n");
+        printf("1) Pesquisa por indice\n");
+        printf("2) Pesquisa binaria direto no arquivo\n");
         printf("3) Mostrar eventos\n");
         printf("4) Excluir evento\n");
         printf("5) Adicionar evento\n");
@@ -1111,7 +1110,7 @@ void menu_eventos(FILE *f, FILE *f_ind){
                 printf("\nVoltando ao menu principal...\n");
                 break; 
             default:
-                printf("\n! Entrada Inválida !\n");
+                printf("\n! Entrada Invalida !\n");
                 break;
         }
     }while(escolha !=0); 
