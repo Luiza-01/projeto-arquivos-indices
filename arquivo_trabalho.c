@@ -892,6 +892,42 @@ void produto_mais_caro(FILE *f){
     escreve_produto(mais_caro);
 }
 
+void consulta_produtos_categoria(FILE *f){
+    if (f == NULL) {
+        printf("Arquivo de produtos invalido!\n");
+        return;
+    }
+
+    char categoria[50];
+    char categoria_busca[50];
+	fflush(stdin);
+    printf("Digite a categoria: ");
+    fgets(categoria, sizeof(categoria), stdin);
+    categoria[strcspn(categoria, "\r\n")] = '\0';
+    completa_com_espacos(categoria_busca, categoria, 50);
+
+    PRODUTO produto;
+    long long i;
+    int encontrados = 0;
+
+    _fseeki64(f, 0, SEEK_SET);
+
+    for (i = 0; i < QTD_PROD_ARQ; i++) {
+        if (fread(&produto, sizeof(PRODUTO), 1, f) != 1) 
+            break;
+        fgetc(f); // Consome o '\n' do registro
+
+        if (!produto.excluido && strcmp(produto.categoria, categoria_busca) == 0){
+            escreve_produto(produto);
+            encontrados++;
+        }
+    }
+    if (encontrados == 0)
+        printf("Nenhum produto ativo encontrado nessa categoria.\n");
+    else
+        printf("\nTotal de produtos encontrados: %d\n", encontrados);
+}
+
 //************ RECONSTRUCAO DE INDICE ************
 
 //nao usada pq o indice nao muda! (Somente sobre parte fixa)
@@ -922,6 +958,7 @@ void menu_produtos(FILE *f, FILE *f_ind){
         printf("4) Excluir produto\n");
         printf("5) Adicionar Produto\n");
         printf("6) Mostrar produto mais caro\n");
+        printf("7) Mostrar produtos de uma categoria\n");
         printf("0) Voltar\n");
         scanf("%d", &escolha);
         
@@ -985,6 +1022,11 @@ void menu_produtos(FILE *f, FILE *f_ind){
             	produto_mais_caro(f);
             	break;
             }
+            case 7: {
+            	printf("\nMostrar produtos de uma categoria:\n");	
+            	consulta_produtos_categoria(f);
+            	break;
+            }
             case 0:     
                 printf("\nVoltando ao menu principal...\n");
                 break; 
@@ -1025,8 +1067,11 @@ void menu_eventos(FILE *f, FILE *f_ind){
                 break;
             }
             case 3: {
+                long long qtd;
                 printf("\nMostrar eventos\n");
-                pesquisa_sequencial_arquivo_eventos(f);
+                printf("Mostrar quantos?");
+                scanf("%lld", &qtd);
+                pesquisa_sequencial_arquivo_eventos(f, qtd);
                 break;
             }
             case 4:{
