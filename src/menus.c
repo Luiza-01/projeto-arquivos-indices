@@ -16,6 +16,24 @@ void pesquisa_indice_e (FILE *f, FILE *f_ind){
     
 }
 
+void exclusao_p (FILE *f, FILE *f_ind){
+    
+    long long indice= 0;
+    printf("Informe o índice do produto a ser excluido:");
+    scanf("%lld",&indice);
+    exclui_produto(f, f_ind, indice);
+    
+}
+
+void exclusao_e (FILE *f, FILE *f_ind){
+    
+    long long indice= 0;
+    printf("Informe o índice do evento a ser excluido:");
+    scanf("%lld",&indice);
+    exclui_evento(f, f_ind, indice);
+    
+}
+
 void menu_produtos(){
     int escolha;
     
@@ -32,13 +50,13 @@ void menu_produtos(){
             case 1:
             
                 printf("\n++ Pesquisa por Índice\n");
-                   pesquisa_indice_p(f, f_ind);
+                    pesquisa_indice_p(f, f_ind);
                 break;
                 
             case 2:
             
                 printf("\n++ Excluir Produto ++\n");
-                //excluir produto
+                    exclusao_p(f, f_ind);
                 break;
                 
             case 3:
@@ -85,7 +103,7 @@ void menu_eventos(){
             case 2:
             
                 printf("\n++ Excluir Evento ++\n");
-                //excluir evento
+                exclusao_e(f, f_ind);
                 break;
                 
             case 3:
