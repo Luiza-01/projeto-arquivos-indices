@@ -88,8 +88,8 @@ void busca_produto(FILE *f, FILE *f_ind, long long procurado){
 }
 
 void busca_evento(FILE *f, FILE *f_ind, long long procurado){
-    _fseeki64(f, 0, SEEK_END);
-    long long fim = ftell(f) / TAM_REG_IND_EVENTO;  //ftell(f) - tamanho em bytes, tamanho de um registro de evento
+    _fseeki64(f_ind, 0, SEEK_END);
+    long long fim = ftell(f_ind) / TAM_REG_IND_EVENTO;  //ftell(f) - tamanho em bytes, tamanho de um registro de evento
     fim --;                                     //qtd de eventos - 1 = ultima posicao
     long long endereco = pesquisa_binaria(fim, TAM_REG_IND_EVENTO, f_ind, 1, procurado);
     if(endereco == -1){

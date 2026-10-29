@@ -1,0 +1,472 @@
+#include<stdio.h>
+#include<stdbool.h>
+#include<string.h>
+
+#define TAM_BLOCO 4096 			//tamanho do bloco do índice
+#define TAM_REG_PROD 105		//tamanho de um registro de produto
+#define TAM_REG_EVENTO 113		//tamanho de um registro de evento
+#define TAM_REG_IND_PROD 8		//tamanho de um registro do indice de produto
+#define TAM_REG_IND_EVENTO 16	//tamanho de um registro do indice de evento
+#define QTD_PROD_ARQ 206876		//quantidade de registros de produto no arquivo
+#define QTD_EVEN_ARQ 109950743	//quantidade de registros de produto no arquivo
+
+// ************STRUCTS************
+
+typedef struct produto {
+    long int id_produto;
+    double preco;
+    char marca[21];
+    char categoria[50];
+    long long prox;             //no arquivo, sem prox = 0
+    bool excluido;
+} PRODUTO;
+
+typedef struct evento {
+    long long id_evento;
+    char id_sessao[37];
+    long int id_user;
+    char tipo_sessao[17];
+    char horario[24];
+    long long prox;				//no arquivo, sem prox = 0
+    bool excluido;
+} EVENTO;
+
+typedef struct indice_prod{
+    long chave;
+    long endereco; //endereco do primeiro registro do bloco
+}INDICE_PROD;
+
+typedef struct indice_evento{
+    long long chave;
+    long long endereco; //endereco do primeiro registro do bloco
+}INDICE_EVENTO;
+
+//************PESQUISAS BINARIAS************
+
+//retorna numero do registro
+long long pesquisa_binaria_arquivo(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
+    long long inicio = 0, meio, chave, prox, posicao;
+    while(inicio <= fim){
+        meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
+		_fseeki64(f, meio * tam_registro, SEEK_SET); //fseek que aceita 64 bits (devido ao long long)
+        if(tipo_arquivo == 0){       //produto
+            PRODUTO prod;
+            if(fread(&prod, sizeof(PRODUTO), 1, f) != 1) 
+				return -1;
+            chave = prod.id_produto;
+        }else if(tipo_arquivo == 1){ //evento
+                EVENTO evento;
+                if(fread(&evento, sizeof(EVENTO), 1, f) != 1) 
+					return -1;
+                chave = evento.id_evento;
+        }else
+            return -1;
+        if(chave == procurado){
+            printf("Valor encontrado");
+            return meio;
+        }
+        else if(chave < procurado)
+            inicio = meio + 1;
+        else 
+            fim = meio - 1;
+    }
+    
+    //verifica se nao esta na parte nao ordenada
+    posicao = fim;
+    while(posicao >= 0){
+    	_fseeki64(f, posicao * tam_registro, SEEK_SET);
+    	if(tipo_arquivo == 0){
+            PRODUTO produto;
+            if(fread(&produto, sizeof(PRODUTO), 1, f) != 1) break;
+            chave = produto.id_produto;
+            prox = produto.prox;
+        }else{
+            EVENTO evento;
+            if(fread(&evento, sizeof(EVENTO), 1, f) != 1) break;
+            chave = evento.id_evento;
+            prox = evento.prox;
+        }
+        if(chave == procurado){
+            printf("Valor encontrado");
+            return posicao;
+        }
+        if(chave > procurado || prox == 0)
+            break;
+        posicao = prox / tam_registro;   
+    }
+    printf("Valor nao encontrado!\n");
+    return -1;
+    
+}
+
+long long pesquisa_binaria_indice(long long fim, int tam_registro, FILE *f, int tipo_arquivo, long long procurado){
+    long long inicio = 0, meio, deslocamento_meio;
+    long long endereco_bloco = -1;
+    
+    while(inicio <= fim){
+        meio = inicio + (fim - inicio) / 2;  // para não ocorrer overflow, essa forma e mais segura 
+		deslocamento_meio = meio * tam_registro;
+		_fseeki64(f, deslocamento_meio, SEEK_SET); //fseek que aceita 64 bits (devido ao long long)
+        long long chave, endereco;
+        
+        if(tipo_arquivo == 0){ //indice produto
+            INDICE_PROD ind_prod;
+            fread(&ind_prod, sizeof(INDICE_PROD), 1, f);
+            chave = ind_prod.chave;
+            endereco = ind_prod.endereco;
+        }else if(tipo_arquivo == 1){ //indice evento
+                INDICE_EVENTO ind_evento;
+                fread(&ind_evento, sizeof(INDICE_EVENTO), 1, f);
+                chave = ind_evento.chave;
+                endereco = ind_evento.endereco;
+        }else
+            return -1;
+            
+        if(chave <= procurado){
+            endereco_bloco = endereco;
+            inicio = meio + 1;
+        }
+        else 
+            fim = meio - 1;
+    }
+    return endereco_bloco;
+}
+
+//************ ESCRITA ************
+
+void escreve_produto(PRODUTO prod){
+    printf("\n");
+    printf("ID: %ld", prod.id_produto);
+    printf("PRECO: %f", prod.preco);
+    printf("MARCA: %s", prod.marca);
+    printf("CATEGORIA: %s", prod.categoria);
+    printf("\n");
+}
+void escreve_evento(EVENTO evento){
+    printf("\n");
+    printf("%lld", evento.id_evento);
+    printf("%s", evento.horario);
+    printf("%ld", evento.id_user);
+    printf("%s", evento.id_sessao);
+    printf("%s", evento.tipo_sessao);
+    printf("\n");
+}
+
+//************CRIACAO DE INDICES************
+
+//chamadas somente no inicio do arquivo
+void cria_indice_prod(FILE *f){
+    FILE *f_ind = fopen("indice_produto.bin", "wb");
+    if(f_ind == NULL){
+        printf("Arquivo de indice nao criado!\n");
+        return;
+    }
+    PRODUTO produto;
+    long posicao_atual = 0;
+    while(fread(&produto, sizeof(produto), 1, f) == 1){
+        fgetc(f);   //consome com o \n, que está no arquivo, mas não na estrutura PRODUTO
+        if(posicao_atual % TAM_BLOCO == 0){
+            INDICE_PROD ind;
+            ind.chave = produto.id_produto;
+            ind.endereco = posicao_atual * TAM_REG_PROD;
+            fwrite(&ind, sizeof(ind), 1, f_ind);
+        }
+        posicao_atual++;
+    }
+
+    fclose(f_ind);
+}
+
+void cria_indice_evento(FILE *f){
+    FILE *f_ind = fopen("indice_evento.bin", "wb");
+    if(f_ind == NULL){
+        printf("Arquivo de indice nao criado!\n");
+        return;
+    }
+    
+    EVENTO evento;
+    long long posicao_atual = 0;
+    while(fread(&evento, sizeof(evento), 1, f) == 1){
+        fgetc(f);   //consome com o \n, que está no arquivo, mas não na estrutura PRODUTO
+        if(posicao_atual % TAM_BLOCO == 0){
+            INDICE_EVENTO ind;
+            ind.chave = evento.id_evento;
+            ind.endereco = posicao_atual * TAM_REG_EVENTO;
+            fwrite(&ind, sizeof(ind), 1, f_ind);
+        }
+        posicao_atual++;
+    }
+
+    fclose(f_ind);
+}
+
+//************BUSCA INDICES************
+
+void busca_produto(FILE *f, FILE *f_ind, long long procurado){
+    _fseeki64(f_ind, 0, SEEK_END);
+    long long fim = ftell(f_ind) / TAM_REG_IND_PROD;    //ftell(f) - tamanho em bytes, tamanho de um registro de produto
+    fim --;                                     //qtd de produtos - 1 = ultima posicao
+	long long endereco = pesquisa_binaria_indice(fim, TAM_REG_IND_PROD, f_ind, 0, procurado);
+    if(endereco == -1){
+        printf("Entrada nao esta no arquivo ou e invalida");
+        return;
+    }
+    
+    long long restantes = TAM_BLOCO;
+    long long ate_fim = QTD_PROD_ARQ - endereco / TAM_REG_PROD;
+    if(restantes > ate_fim)
+        restantes = ate_fim;
+        
+    PRODUTO produto, anterior;
+    memset(&anterior, 0, sizeof(PRODUTO));      //anterior.prox = 0 caso nada seja lido
+    bool achou = false;
+    int i;    
+    
+    _fseeki64(f, endereco, SEEK_SET);
+
+    for(i=0;i<restantes;i++){
+    	if(fread(&produto, sizeof(PRODUTO), 1, f) != 1)
+    		break;	//fim arquivo
+    	fgetc(f);	//consome \n
+    	if(produto.id_produto == procurado){
+    		achou = true;
+			break;	
+    	}
+    	if(produto.id_produto > procurado)
+    		break; //numero e maior que o procurado, procurado nao esta no arquivo
+    	anterior = produto;
+	}
+    while(!achou && anterior.prox != 0){
+        _fseeki64(f, anterior.prox, SEEK_SET);
+        if(fread(&produto, sizeof(PRODUTO), 1, f) != 1)
+            break;
+        if(produto.id_produto == procurado){
+            achou = true;
+            break;
+        }
+        if(produto.id_produto > procurado)
+            break;                              //cadeia e crescente: nao existe
+        anterior = produto;
+    }
+
+    if(achou && !produto.excluido)
+        escreve_produto(produto);
+    else
+        printf("Entrada nao esta no arquivo ou e invalida");
+}
+
+void busca_evento(FILE *f, FILE *f_ind, long long procurado){
+    _fseeki64(f_ind, 0, SEEK_END);                          //corrigido: tamanho do INDICE, nao do arquivo de dados
+    long long fim = _ftelli64(f_ind) / TAM_REG_IND_EVENTO;
+    fim --;
+    long long endereco = pesquisa_binaria_indice(fim, TAM_REG_IND_EVENTO, f_ind, 1, procurado);
+    if(endereco == -1){
+        printf("Entrada nao esta no arquivo ou e invalida");
+        return;
+    }
+
+    long long restantes = TAM_BLOCO;
+    long long ate_fim = QTD_EVEN_ARQ - endereco / TAM_REG_EVENTO;
+    if(restantes > ate_fim)
+        restantes = ate_fim;
+
+    EVENTO evento, anterior;
+    memset(&anterior, 0, sizeof(EVENTO));
+    bool achou = false;
+    int i;
+
+    _fseeki64(f, endereco, SEEK_SET);
+    for(i=0;i<restantes;i++){
+        if(fread(&evento, sizeof(EVENTO), 1, f) != 1)
+            break;
+        fgetc(f);
+        if(evento.id_evento == procurado){
+            achou = true;
+            break;
+        }
+        if(evento.id_evento > procurado)
+            break;
+        anterior = evento;
+    }
+
+    while(!achou && anterior.prox != 0){
+        _fseeki64(f, anterior.prox, SEEK_SET);
+        if(fread(&evento, sizeof(EVENTO), 1, f) != 1)
+            break;
+        if(evento.id_evento == procurado){
+            achou = true;
+            break;
+        }
+        if(evento.id_evento > procurado)
+            break;
+        anterior = evento;
+    }
+
+    if(achou && !evento.excluido)
+        escreve_evento(evento);
+    else
+        printf("Entrada nao esta no arquivo ou e invalida");
+}
+
+//************INSERCAO************
+
+void completa_com_espacos(char *dest, const char *src, int tamanho) {
+    int n = strlen(src);
+    if (n > tamanho - 1)
+        n = tamanho - 1;
+    memcpy(dest, src, n);
+    memset(dest + n, ' ', tamanho - 1 - n);
+    dest[tamanho - 1] = '\0';
+}
+
+PRODUTO cria_produto(long id_produto, char categoria[50], char marca[21], double preco){
+    PRODUTO produto;
+    memset(&produto, 0, sizeof(PRODUTO));
+    produto.id_produto = id_produto;
+    completa_com_espacos(produto.categoria, categoria, 50);
+    completa_com_espacos(produto.marca, marca, 21);
+    produto.preco = preco;
+    produto.excluido = false;
+    produto.prox = 0;
+    return produto;
+}
+
+int insercao_arquivo_produtos(FILE *f, FILE *f_ind, PRODUTO novo){
+
+    _fseeki64(f, 0, SEEK_SET);
+    PRODUTO primeiro;
+    if(fread(&primeiro, sizeof(PRODUTO), 1, f) != 1)
+        return 0;   //nao leu
+
+    if(novo.id_produto == primeiro.id_produto){
+    	if(!primeiro.excluido)
+        	return 0;   //já existe
+        novo.prox = primeiro.prox;
+        _fseeki64(f, 0, SEEK_SET);
+        fwrite(&novo, sizeof(PRODUTO), 1, f);
+        return 1;
+	}
+    if(novo.id_produto < primeiro.id_produto){  //insere no inicio
+        //antigo primeiro vai para o fim
+        _fseeki64(f, 0, SEEK_END);
+        long long posicao = _ftelli64(f);
+        fwrite(&primeiro, sizeof(PRODUTO), 1, f);
+        fputc('\n', f);
+        
+        //novo fica na primeira posicao do arquivo
+        novo.prox = posicao;
+        _fseeki64(f, 0, SEEK_SET);
+        fwrite(&novo, sizeof(PRODUTO), 1, f);
+        fputc('\n', f);
+
+        //ajusta primeira entrada do indice
+        INDICE_PROD ind;
+        _fseeki64(f_ind, 0, SEEK_SET);
+        if(fread(&ind, sizeof(INDICE_PROD), 1, f_ind) == 1){
+            ind.chave = novo.id_produto;
+            _fseeki64(f_ind, 0, SEEK_SET);
+            fwrite(&ind, sizeof(INDICE_PROD), 1, f_ind); 
+        }
+        return 1;
+    }
+    else{ // insere no meio ou fim
+        _fseeki64(f_ind, 0, SEEK_END);
+        long long fim = _ftelli64(f_ind) / TAM_REG_IND_PROD;
+        fim--; //endereco inicial do inserido
+        long long endereco = pesquisa_binaria_indice(fim, TAM_REG_IND_PROD, f_ind, 0, novo.id_produto);
+        if(endereco == -1)
+            return 0;
+        //endereco = endereco inicial do bloco
+        
+
+        //acha o endereco do registro que apontará para o adicionado (pos_ant)
+        long long restantes = TAM_BLOCO;
+        long long ate_fim = QTD_PROD_ARQ - endereco / TAM_REG_PROD;   //registros ordenados que faltam
+        if(restantes > ate_fim)
+            restantes = ate_fim;
+
+        _fseeki64(f, endereco, SEEK_SET);
+        int i;
+        long long pos = endereco, pos_ant = endereco;
+        PRODUTO lido;
+        for(i=0;i<restantes;i++){
+            if(fread(&lido, sizeof(PRODUTO), 1, f) != 1)
+                return 0;   //nao conseguiu ler
+            fgetc(f);       //consome \n
+            if(lido.id_produto == novo.id_produto){
+             	if(!lido.excluido)
+                    return 0;   //produto ja existe
+                novo.prox = lido.prox;                  //reativa no mesmo lugar
+                _fseeki64(f, pos, SEEK_SET);
+                fwrite(&novo, sizeof(PRODUTO), 1, f);
+                return 1;
+            }
+            if(lido.id_produto > novo.id_produto)
+                break;      //anterior terá ele como proximo
+            pos_ant = pos;
+            pos += TAM_REG_PROD;
+        }
+
+        //segue os prox enquanto chave for menor que a do novo
+        _fseeki64(f, pos_ant, SEEK_SET);
+        PRODUTO anterior;
+        if(fread(&anterior, sizeof(PRODUTO), 1, f) != 1)
+            return 0;   //nao conseguiu ler
+        while(anterior.prox != 0){
+            _fseeki64(f, anterior.prox, SEEK_SET);
+            if(fread(&lido, sizeof(PRODUTO), 1, f) != 1)
+                return 0;
+            if(lido.id_produto == novo.id_produto)
+                if(!lido.excluido)
+                    return 0;   //ja existe
+                novo.prox = lido.prox;                  //reativa no mesmo lugar
+                _fseeki64(f, anterior.prox, SEEK_SET);
+                fwrite(&novo, sizeof(PRODUTO), 1, f);
+                return 1;
+            }
+            if(lido.id_produto > novo.id_produto)
+                break;
+            pos_ant = anterior.prox;
+            anterior = lido;
+        }
+
+        //grava novo no fim (herdando prox do seu anterior)
+        novo.prox = anterior.prox;
+        _fseeki64(f, 0, SEEK_END);
+        long long pos_novo = _ftelli64(f);
+        fwrite(&novo, sizeof(PRODUTO), 1, f);
+        fputc('\n', f);
+
+        //anterior passa a apontar para ele
+        anterior.prox = pos_novo;
+        _fseeki64(f, pos_ant, SEEK_SET);
+        fwrite(&anterior, sizeof(PRODUTO), 1, f);
+        return 1;
+    }
+}
+int main(){
+    FILE *f_prod = fopen("produtos.bin", "r+b");
+    if(f_prod == NULL){
+        printf("Nao foi possivel abrir o arquivo!\n");
+        return 1;
+    }
+
+    FILE *f_evento = fopen("eventos.bin", "r+b");
+        if(f_evento == NULL){
+        printf("Nao foi possivel abrir o arquivo!\n");
+        return 1;
+    }
+     
+	FILE *f_ind_prod = fopen("indice_produto.bin", "rb");
+	
+    cria_indice_prod(f_prod);
+	//gera_prod_txtbin();
+	//busca_produto(f_prod, f_ind_prod, 2501421);
+	PRODUTO novo = cria_produto(2700603, "cat1", "marca1", 10.75);
+	insercao_arquivo_produtos(f_prod, f_ind_prod, novo);
+	
+    fclose(f_prod);
+    fclose(f_evento);
+    fclose(f_ind_prod);
+    return 0;
+}

@@ -84,3 +84,4 @@ void escreve_evento(EVENTO evento){
     printf("%s", evento.tipo_sessao);
     printf("\n");
 }
+
